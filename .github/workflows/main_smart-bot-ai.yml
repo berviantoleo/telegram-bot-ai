@@ -17,16 +17,16 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Set up .NET Core
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '6.0.x'
           include-prerelease: true
 
       - name: Build with dotnet
-        run: dotnet build TelegramBot --configuration Release
+        run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish TelegramBot -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v2
@@ -53,5 +53,5 @@ jobs:
         with:
           app-name: 'smart-bot-ai'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_59A075A9F6B74FCF91CFBC2B1F74C3DD }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_03799FED9BA84FAB81CF68542BE0E113 }}
           package: .
