@@ -201,8 +201,8 @@ namespace TelegramBot.Services
                     var captions = resultVision.Description?.Captions?.Select(captions => captions.Text).ToList() ?? new List<string>();
                     var returnedMessage = await _botClient.SendTextMessageAsync(
                         chatId: message.Chat.Id,
-                        text: $"<b>Tags</b>: {string.Join(',', tags)}<br/><b>Categories</b>: {string.Join(',', categories)}<br/><b>Captions</b>: {string.Join(',', captions)}<br/>",
-                        parseMode: ParseMode.Html,
+                        text: $"**Tags**: {string.Join(',', tags)}. **Categories**: {string.Join(',', categories)}. **Captions**: {string.Join(',', captions)}.",
+                        parseMode: ParseMode.MarkdownV2,
                         replyToMessageId: message.MessageId);
                     return returnedMessage;
                 }
