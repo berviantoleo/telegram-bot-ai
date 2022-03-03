@@ -197,11 +197,11 @@ namespace TelegramBot.Services
                     var dataVesion = JsonConvert.SerializeObject(resultVision);
                     _logger.LogInformation($"Vision result: {dataVesion}");
                     var tags = resultVision.Tags?.Select(tag => tag.Name).ToList() ?? new List<string>();
-                    var categories = resultVision.Categories?.Select(category => category.Name).ToList() ?? new List<string>();
+                    var categories = resultVision.Categories?.Select(category => category.Name.Replace("_", "")).ToList() ?? new List<string>();
                     var captions = resultVision.Description?.Captions?.Select(captions => captions.Text).ToList() ?? new List<string>();
                     var returnedMessage = await _botClient.SendTextMessageAsync(
                         chatId: message.Chat.Id,
-                        text: $"**Tags**: {string.Join(',', tags)}. **Categories**: {string.Join(',', categories)}. **Captions**: {string.Join(',', captions)}.",
+                        text: $"**Tags**: {string.Join(',', tags)}\\. **Categories**: {string.Join(',', categories)}\\. **Captions**: {string.Join(',', captions)}\\.",
                         parseMode: ParseMode.MarkdownV2,
                         replyToMessageId: message.MessageId);
                     return returnedMessage;
