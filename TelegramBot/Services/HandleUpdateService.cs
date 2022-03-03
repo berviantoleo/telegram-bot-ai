@@ -174,8 +174,10 @@ namespace TelegramBot.Services
                     using var memoryStream = new MemoryStream(maximumImage.FileSize.GetValueOrDefault());
                     var file = await _botClient.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
                     _logger.LogInformation($"Download file: {file.FileUniqueId}, {file.FilePath}, {file.FileSize}");
+                    _logger.LogInformation($"Stream size initial: {memoryStream.Position}, {memoryStream.Length}");
                     // reset position
                     memoryStream.Position = 0;
+                    _logger.LogInformation($"Stream size reset: {memoryStream.Position}, {memoryStream.Length}");
                     var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream);
                     var tags = string.Join(',', resultVision.Tags.Select(tag => tag.Name));
                     var returnedMessage = await _botClient.SendTextMessageAsync(message.Chat.Id, tags);
