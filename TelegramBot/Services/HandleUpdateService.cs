@@ -59,7 +59,7 @@ namespace TelegramBot.Services
 
             if (message.Type == MessageType.Photo)
             {
-                var process = await ProccessImage(_botClient, _computerVisionClient, message);
+                var process = await ProccessImage(message);
                 _logger.LogInformation("The message was sent with id: {sentMessageId}", process?.MessageId);
                 return;
             }
@@ -160,21 +160,33 @@ namespace TelegramBot.Services
                                                       replyMarkup: new ReplyKeyboardRemove());
             }
 
-            static async Task<Message?> ProccessImage(ITelegramBotClient bot, ComputerVisionClient computerVisionClient, Message message)
+
+        }
+
+        private async Task<Message?> ProccessImage(Message message)
+        {
+            var image = message.Photo;
+            var maximumImage = image!.FirstOrDefault(file => file.FileId.Equals(image!.MaxBy(data => data.FileSize)!.FileId));
+            if (maximumImage != null)
             {
-                var image = message.Photo;
-                var maximumImage = image!.FirstOrDefault(file => file.FileId.Equals(image!.MaxBy(data => data.FileSize)!.FileId));
-                if (maximumImage != null)
+                try
                 {
-                    using var memoryStream = new MemoryStream();
-                    await bot.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
-                    var resultVision = await computerVisionClient.AnalyzeImageInStreamAsync(memoryStream);
-                    var tags = string.Join(',', resultVision.Tags);
-                    var returnedMessage = await bot.SendTextMessageAsync(message.Chat.Id, tags);
+                    using var memoryStream = new MemoryStream(maximumImage.FileSize.GetValueOrDefault());
+                    var file = await _botClient.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
+                    var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream);
+                    var tags = string.Join(',', resultVision.Tags.Select(tag => tag.Name));
+                    var returnedMessage = await _botClient.SendTextMessageAsync(message.Chat.Id, tags);
                     return returnedMessage;
                 }
-                return null;
+                catch (Exception ex)
+                {
+                    _logger.LogError(exception: ex, "Some error: ");
+                    await _botClient.SendTextMessageAsync(message.Chat.Id, "Photo can't be processed");
+                    return null;
+                }
+
             }
+            return null;
         }
 
         // Process Inline Keyboard callback data
