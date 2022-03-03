@@ -1,4 +1,5 @@
 ﻿using Microsoft.Azure.CognitiveServices.Vision.ComputerVision;
+using Microsoft.Azure.CognitiveServices.Vision.ComputerVision.Models;
 using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -179,7 +180,20 @@ namespace TelegramBot.Services
                     // reset position
                     memoryStream.Position = 0;
                     _logger.LogInformation($"Stream size reset: {memoryStream.Position}, {memoryStream.Length}");
-                    var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream);
+
+                    List<VisualFeatureTypes?> features = new()
+                    {
+                        VisualFeatureTypes.Categories,
+                        VisualFeatureTypes.Description,
+                        VisualFeatureTypes.Faces,
+                        VisualFeatureTypes.ImageType,
+                        VisualFeatureTypes.Tags,
+                        VisualFeatureTypes.Adult,
+                        VisualFeatureTypes.Color,
+                        VisualFeatureTypes.Brands,
+                        VisualFeatureTypes.Objects
+                    };
+                    var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream, visualFeatures: features);
                     var tags = JsonConvert.SerializeObject(resultVision);
                     _logger.LogInformation($"Vision result: {tags}");
                     var returnedMessage = await _botClient.SendTextMessageAsync(message.Chat.Id, tags);
