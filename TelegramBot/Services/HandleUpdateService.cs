@@ -18,7 +18,11 @@ namespace TelegramBot.Services
         {
             _botClient = botClient;
             _logger = logger;
-            _computerVisionClient = new ComputerVisionClient(new ApiKeyServiceClientCredentials(Environment.GetEnvironmentVariable("COMPUTER_VISION_API_KEY")));
+            _computerVisionClient = new ComputerVisionClient(
+                new ApiKeyServiceClientCredentials(Environment.GetEnvironmentVariable("COMPUTER_VISION_API_KEY")))
+            {
+                Endpoint = Environment.GetEnvironmentVariable("COMPUTER_VISION_API_ENDPOINT")
+            };
         }
 
         public async Task EchoAsync(Update update)
@@ -57,6 +61,7 @@ namespace TelegramBot.Services
             {
                 var process = await ProccessImage(_botClient, _computerVisionClient, message);
                 _logger.LogInformation("The message was sent with id: {sentMessageId}", process?.MessageId);
+                return;
             }
 
             if (message.Type != MessageType.Text)
