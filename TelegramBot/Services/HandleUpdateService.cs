@@ -1,9 +1,9 @@
-﻿using Telegram.Bot;
+﻿using Microsoft.Azure.CognitiveServices.Vision.ComputerVision;
+using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InlineQueryResults;
-using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace TelegramBot.Services
@@ -12,11 +12,13 @@ namespace TelegramBot.Services
     {
         private readonly ITelegramBotClient _botClient;
         private readonly ILogger<HandleUpdateService> _logger;
+        private readonly ComputerVisionClient _computerVisionClient;
 
         public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger)
         {
             _botClient = botClient;
             _logger = logger;
+            _computerVisionClient = new ComputerVisionClient(new ApiKeyServiceClientCredentials(Environment.GetEnvironmentVariable("COMPUTER_VISION_API_KEY")); 
         }
 
         public async Task EchoAsync(Update update)
@@ -50,6 +52,13 @@ namespace TelegramBot.Services
         private async Task BotOnMessageReceived(Message message)
         {
             _logger.LogInformation("Receive message type: {messageType}", message.Type);
+
+            if (message.Type == MessageType.Photo)
+            {
+                var process = await ProccessImage(_botClient, _computerVisionClient, message);
+                _logger.LogInformation("The message was sent with id: {sentMessageId}", process?.MessageId);
+            }
+
             if (message.Type != MessageType.Text)
                 return;
 
@@ -58,7 +67,6 @@ namespace TelegramBot.Services
                 "/inline" => SendInlineKeyboard(_botClient, message),
                 "/keyboard" => SendReplyKeyboard(_botClient, message),
                 "/remove" => RemoveKeyboard(_botClient, message),
-                // "/photo" => SendFile(_botClient, message),
                 "/request" => RequestContactAndLocation(_botClient, message),
                 _ => Usage(_botClient, message)
             };
@@ -120,19 +128,6 @@ namespace TelegramBot.Services
                                                       replyMarkup: new ReplyKeyboardRemove());
             }
 
-            static async Task<Message> SendFile(ITelegramBotClient bot, Message message)
-            {
-                await bot.SendChatActionAsync(message.Chat.Id, ChatAction.UploadPhoto);
-
-                const string filePath = @"Files/tux.png";
-                using FileStream fileStream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var fileName = filePath.Split(Path.DirectorySeparatorChar).Last();
-
-                return await bot.SendPhotoAsync(chatId: message.Chat.Id,
-                                                photo: new InputOnlineFile(fileStream, fileName),
-                                                caption: "Nice Picture");
-            }
-
             static async Task<Message> RequestContactAndLocation(ITelegramBotClient bot, Message message)
             {
                 ReplyKeyboardMarkup RequestReplyKeyboard = new(
@@ -153,12 +148,27 @@ namespace TelegramBot.Services
                                      "/inline   - send inline keyboard\n" +
                                      "/keyboard - send custom keyboard\n" +
                                      "/remove   - remove custom keyboard\n" +
-                                     "/photo    - send a photo\n" +
                                      "/request  - request location or contact";
 
                 return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
                                                       text: usage,
                                                       replyMarkup: new ReplyKeyboardRemove());
+            }
+
+            static async Task<Message?> ProccessImage(ITelegramBotClient bot, ComputerVisionClient computerVisionClient, Message message)
+            {
+                var image = message.Photo;
+                var maximumImage = image!.FirstOrDefault(file => file.FileId.Equals(image!.MaxBy(data => data.FileSize)!.FileId));
+                if (maximumImage != null)
+                {
+                    using var memoryStream = new MemoryStream();
+                    await bot.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
+                    var resultVision = await computerVisionClient.AnalyzeImageInStreamAsync(memoryStream);
+                    var tags = string.Join(',', resultVision.Tags);
+                    var returnedMessage = await bot.SendTextMessageAsync(message.Chat.Id, tags);
+                    return returnedMessage;
+                }
+                return null;
             }
         }
 
