@@ -18,7 +18,7 @@ namespace TelegramBot.Services
         {
             _botClient = botClient;
             _logger = logger;
-            _computerVisionClient = new ComputerVisionClient(new ApiKeyServiceClientCredentials(Environment.GetEnvironmentVariable("COMPUTER_VISION_API_KEY")); 
+            _computerVisionClient = new ComputerVisionClient(new ApiKeyServiceClientCredentials(Environment.GetEnvironmentVariable("COMPUTER_VISION_API_KEY"))); 
         }
 
         public async Task EchoAsync(Update update)
