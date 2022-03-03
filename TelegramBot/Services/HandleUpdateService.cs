@@ -194,15 +194,26 @@ namespace TelegramBot.Services
                         VisualFeatureTypes.Objects
                     };
                     var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream, visualFeatures: features);
-                    var tags = JsonConvert.SerializeObject(resultVision);
-                    _logger.LogInformation($"Vision result: {tags}");
-                    var returnedMessage = await _botClient.SendTextMessageAsync(message.Chat.Id, tags);
+                    var dataVesion = JsonConvert.SerializeObject(resultVision);
+                    _logger.LogInformation($"Vision result: {dataVesion}");
+                    var tags = resultVision.Tags?.Select(tag => tag.Name).ToList() ?? new List<string>();
+                    var categories = resultVision.Categories?.Select(category => category.Name).ToList() ?? new List<string>();
+                    var captions = resultVision.Description?.Captions?.Select(captions => captions.Text).ToList() ?? new List<string>();
+                    var returnedMessage = await _botClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: $"<b>Tags</b>: {string.Join(',', tags)}<br/><b>Categories</b>: {string.Join(',', categories)}<br/><b>Captions</b>: {string.Join(',', captions)}<br/>",
+                        parseMode: ParseMode.Html,
+                        replyToMessageId: message.MessageId);
                     return returnedMessage;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(exception: ex, "Some error: ");
-                    await _botClient.SendTextMessageAsync(message.Chat.Id, "Photo can't be processed");
+                    await _botClient.SendTextMessageAsync(
+                        chatId: message.Chat.Id,
+                        text: "Photo can't be processed",
+                        replyToMessageId: message.MessageId
+                        );
                     return null;
                 }
 
