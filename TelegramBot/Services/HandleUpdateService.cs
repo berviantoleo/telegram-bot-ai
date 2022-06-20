@@ -173,7 +173,9 @@ namespace TelegramBot.Services
             {
                 try
                 {
-                    using var memoryStream = new MemoryStream(maximumImage.FileSize.GetValueOrDefault());
+
+                    // TODO: handle long correctly
+                    using var memoryStream = new MemoryStream((int)maximumImage.FileSize.GetValueOrDefault());
                     var file = await _botClient.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
                     _logger.LogInformation($"Download file: {file.FileUniqueId}, {file.FilePath}, {file.FileSize}");
                     _logger.LogInformation($"Stream size initial: {memoryStream.Position}, {memoryStream.Length}");
