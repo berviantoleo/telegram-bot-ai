@@ -9,7 +9,7 @@ using TelegramBot.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-var BotConfig = builder.Configuration.GetSection("BotConfiguration").Get<BotConfiguration>();
+var botConfig = builder.Configuration.GetSection("BotConfiguration").Get<BotConfiguration>();
 // There are several strategies for completing asynchronous tasks during startup.
 // Some of them could be found in this article https://andrewlock.net/running-async-tasks-on-app-"startup-in-asp-net-core-part-1/
 // We are going to use IHostedService to add and later remove Webhook
@@ -19,9 +19,12 @@ builder.Services.AddHostedService<ConfigureWebhook>();
 // More read:
 //  https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#typed-clients
 //  https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests
-builder.Services.AddHttpClient("tgwebhook")
+if (botConfig != null)
+{
+    builder.Services.AddHttpClient("tgwebhook")
         .AddTypedClient<ITelegramBotClient>(httpClient
-            => new TelegramBotClient(BotConfig.BotToken, httpClient));
+            => new TelegramBotClient(botConfig.BotToken, httpClient));
+}
 builder.Services.AddScoped<HandleUpdateService>();
 builder.Services.AddControllers().AddNewtonsoftJson();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -46,15 +49,18 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseRouting();
-app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+app.UseCors(corsPolicyBuilder => corsPolicyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
 
 app.UseEndpoints(endpoints =>
 {
-    var token = BotConfig.BotToken;
-    var url = $"bot/{token}";
-    endpoints.MapControllerRoute("webhooktelegram", url, defaults:
-        new { controller = "Webhook", action = "Post" });
+    if (botConfig != null)
+    {
+        var token = botConfig.BotToken;
+        var url = $"bot/{token}";
+        endpoints.MapControllerRoute("webhooktelegram", url, defaults:
+            new { controller = "Webhook", action = "Post" });
+    }
     endpoints.MapControllers();
 });
 
