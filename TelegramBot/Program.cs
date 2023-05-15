@@ -1,24 +1,12 @@
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 using Telegram.Bot;
-using Telegram.Bot.Types;
 using TelegramBot.Config;
 using TelegramBot.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 var botConfig = builder.Configuration.GetSection("BotConfiguration").Get<BotConfiguration>();
-// There are several strategies for completing asynchronous tasks during startup.
-// Some of them could be found in this article https://andrewlock.net/running-async-tasks-on-app-"startup-in-asp-net-core-part-1/
-// We are going to use IHostedService to add and later remove Webhook
 builder.Services.AddHostedService<ConfigureWebhook>();
-// Register named HttpClient to get benefits of IHttpClientFactory
-// and consume it with ITelegramBotClient typed client.
-// More read:
-//  https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#typed-clients
-//  https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests
 if (botConfig != null)
 {
     builder.Services.AddHttpClient("tgwebhook")
@@ -47,21 +35,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
 app.UseRouting();
 app.UseCors(corsPolicyBuilder => corsPolicyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
-
-app.UseEndpoints(endpoints =>
+if (botConfig != null)
 {
-    if (botConfig != null)
-    {
-        var token = botConfig.BotToken;
-        var url = $"bot/{token}";
-        endpoints.MapControllerRoute("webhooktelegram", url, defaults:
-            new { controller = "Webhook", action = "Post" });
-    }
-    endpoints.MapControllers();
-});
+    var token = botConfig.BotToken;
+    var url = $"bot/{token}";
+    app.MapControllerRoute("webhooktelegram", url, defaults:
+        new { controller = "Webhook", action = "Post" });
+}
+
+app.MapControllers();
 
 app.Run();
