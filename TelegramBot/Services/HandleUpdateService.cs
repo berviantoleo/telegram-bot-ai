@@ -61,7 +61,7 @@ namespace TelegramBot.Services
 
             if (message.Type == MessageType.Photo)
             {
-                var process = await ProccessImage(message);
+                var process = await ProcessImage(message);
                 _logger.LogInformation("The message was sent with id: {sentMessageId}", process?.MessageId);
                 return;
             }
@@ -84,7 +84,7 @@ namespace TelegramBot.Services
             // You can process responses in BotOnCallbackQueryReceived handler
             static async Task<Message> SendInlineKeyboard(ITelegramBotClient bot, Message message)
             {
-                await bot.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
+                await bot.SendChatAction(message.Chat.Id, ChatAction.Typing);
 
                 // Simulate longer running task
                 await Task.Delay(500);
@@ -106,7 +106,7 @@ namespace TelegramBot.Services
                     },
                     });
 
-                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                return await bot.SendMessage(chatId: message.Chat.Id,
                                                       text: "Choose",
                                                       replyMarkup: inlineKeyboard);
             }
@@ -123,30 +123,30 @@ namespace TelegramBot.Services
                     ResizeKeyboard = true
                 };
 
-                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                return await bot.SendMessage(chatId: message.Chat.Id,
                                                       text: "Choose",
                                                       replyMarkup: replyKeyboardMarkup);
             }
 
             static async Task<Message> RemoveKeyboard(ITelegramBotClient bot, Message message)
             {
-                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                return await bot.SendMessage(chatId: message.Chat.Id,
                                                       text: "Removing keyboard",
                                                       replyMarkup: new ReplyKeyboardRemove());
             }
 
             static async Task<Message> RequestContactAndLocation(ITelegramBotClient bot, Message message)
             {
-                ReplyKeyboardMarkup RequestReplyKeyboard = new(
+                ReplyKeyboardMarkup requestReplyKeyboard = new(
                     new[]
                     {
                     KeyboardButton.WithRequestLocation("Location"),
                     KeyboardButton.WithRequestContact("Contact"),
                     });
 
-                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                return await bot.SendMessage(chatId: message.Chat.Id,
                                                       text: "Who or Where are you?",
-                                                      replyMarkup: RequestReplyKeyboard);
+                                                      replyMarkup: requestReplyKeyboard);
             }
 
             static async Task<Message> Usage(ITelegramBotClient bot, Message message)
@@ -157,7 +157,7 @@ namespace TelegramBot.Services
                                      "/remove   - remove custom keyboard\n" +
                                      "/request  - request location or contact";
 
-                return await bot.SendTextMessageAsync(chatId: message.Chat.Id,
+                return await bot.SendMessage(chatId: message.Chat.Id,
                                                       text: usage,
                                                       replyMarkup: new ReplyKeyboardRemove());
             }
@@ -165,7 +165,7 @@ namespace TelegramBot.Services
 
         }
 
-        private async Task<Message?> ProccessImage(Message message)
+        private async Task<Message?> ProcessImage(Message message)
         {
             var image = message.Photo;
             var maximumImage = image!.FirstOrDefault(file => file.FileId.Equals(image!.MaxBy(data => data.FileSize)!.FileId));
@@ -176,7 +176,7 @@ namespace TelegramBot.Services
 
                     // TODO: handle long correctly
                     using var memoryStream = new MemoryStream((int)maximumImage.FileSize.GetValueOrDefault());
-                    var file = await _botClient.GetInfoAndDownloadFileAsync(maximumImage.FileId, memoryStream);
+                    var file = await _botClient.GetInfoAndDownloadFile(maximumImage.FileId, memoryStream);
                     _logger.LogInformation($"Download file: {file.FileUniqueId}, {file.FilePath}, {file.FileSize}");
                     _logger.LogInformation($"Stream size initial: {memoryStream.Position}, {memoryStream.Length}");
                     // reset position
@@ -196,25 +196,25 @@ namespace TelegramBot.Services
                         VisualFeatureTypes.Objects
                     };
                     var resultVision = await _computerVisionClient.AnalyzeImageInStreamAsync(memoryStream, visualFeatures: features);
-                    var dataVesion = JsonConvert.SerializeObject(resultVision);
-                    _logger.LogInformation($"Vision result: {dataVesion}");
+                    var dataVision = JsonConvert.SerializeObject(resultVision);
+                    _logger.LogInformation($"Vision result: {dataVision}");
                     var tags = resultVision.Tags?.Select(tag => tag.Name).ToList() ?? new List<string>();
                     var categories = resultVision.Categories?.Select(category => category.Name.Replace("_", "")).ToList() ?? new List<string>();
                     var captions = resultVision.Description?.Captions?.Select(captions => captions.Text).ToList() ?? new List<string>();
-                    var returnedMessage = await _botClient.SendTextMessageAsync(
+                    var returnedMessage = await _botClient.SendMessage(
                         chatId: message.Chat.Id,
                         text: $"**Tags**: {string.Join(',', tags)}\\. **Categories**: {string.Join(',', categories)}\\. **Captions**: {string.Join(',', captions)}\\.",
                         parseMode: ParseMode.MarkdownV2,
-                        replyToMessageId: message.MessageId);
+                        replyParameters: message.Id);
                     return returnedMessage;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(exception: ex, "Some error: ");
-                    await _botClient.SendTextMessageAsync(
+                    await _botClient.SendMessage(
                         chatId: message.Chat.Id,
                         text: "Photo can't be processed",
-                        replyToMessageId: message.MessageId
+                        replyParameters: message.Id
                         );
                     return null;
                 }
@@ -226,13 +226,17 @@ namespace TelegramBot.Services
         // Process Inline Keyboard callback data
         private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery)
         {
-            await _botClient.AnswerCallbackQueryAsync(
+            await _botClient.AnswerCallbackQuery(
                 callbackQueryId: callbackQuery.Id,
                 text: $"Received {callbackQuery.Data}");
 
-            await _botClient.SendTextMessageAsync(
-                chatId: callbackQuery.Message.Chat.Id,
-                text: $"Received {callbackQuery.Data}");
+            if (callbackQuery.Message?.Chat.Id != null)
+            {
+                await _botClient.SendMessage(
+                    chatId: callbackQuery.Message.Chat.Id,
+                    text: $"Received {callbackQuery.Data}");
+            }
+            
         }
 
         #region Inline Mode
@@ -241,18 +245,19 @@ namespace TelegramBot.Services
         {
             _logger.LogInformation("Received inline query from: {inlineQueryFromId}", inlineQuery.From.Id);
 
-            InlineQueryResult[] results = {
-            // displayed result
-            new InlineQueryResultArticle(
-                id: "3",
-                title: "TgBots",
-                inputMessageContent: new InputTextMessageContent(
-                    "hello"
+            InlineQueryResult[] results =
+            {
+                // displayed result
+                new InlineQueryResultArticle(
+                    id: "3",
+                    title: "TgBots",
+                    inputMessageContent: new InputTextMessageContent(
+                        "hello"
+                    )
                 )
-            )
-        };
+            };
 
-            await _botClient.AnswerInlineQueryAsync(inlineQueryId: inlineQuery.Id,
+            await _botClient.AnswerInlineQuery(inlineQueryId: inlineQuery.Id,
                                                     results: results,
                                                     isPersonal: true,
                                                     cacheTime: 0);
@@ -273,15 +278,15 @@ namespace TelegramBot.Services
             return Task.CompletedTask;
         }
 
-        public Task HandleErrorAsync(Exception exception)
+        private Task HandleErrorAsync(Exception exception)
         {
-            var ErrorMessage = exception switch
+            var errorMessage = exception switch
             {
                 ApiRequestException apiRequestException => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
                 _ => exception.ToString()
             };
 
-            _logger.LogInformation("HandleError: {ErrorMessage}", ErrorMessage);
+            _logger.LogInformation("HandleError: {ErrorMessage}", errorMessage);
             return Task.CompletedTask;
         }
     }
