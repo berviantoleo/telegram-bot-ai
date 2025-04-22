@@ -31,7 +31,7 @@ namespace TelegramBot.Services
             // Since nobody else knows your bot's token, you can be pretty sure it's us.
             var webhookAddress = @$"{_botConfig.HostAddress}/bot/{_botConfig.BotToken}";
             _logger.LogInformation("Setting webhook: {webhookAddress}", webhookAddress);
-            await botClient.SetWebhookAsync(
+            await botClient.SetWebhook(
                 url: webhookAddress,
                 allowedUpdates: Array.Empty<UpdateType>(),
                 cancellationToken: cancellationToken);
